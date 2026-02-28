@@ -62,7 +62,7 @@ function encodeU256(value: string): Uint8Array {
 // ── Helper: encode a selector string via SHA-256 (first 4 bytes) ──
 async function encodeSelector(name: string): Promise<Uint8Array> {
   const data = encodeString(name);
-  const hash = await crypto.subtle.digest('SHA-256', data);
+  const hash = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
   return new Uint8Array(hash).slice(0, 4);
 }
 
