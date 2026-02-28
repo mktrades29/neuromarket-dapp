@@ -1,0 +1,33 @@
+{
+  "name": "@neuromarket/contracts",
+  "version": "1.0.0",
+  "description": "NeuroMarket — Decentralized AI Skill Marketplace on OP_NET (Bitcoin)",
+  "author": "NeuroMarket Team",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "asc src/index.ts --target neuromarket --uncheckedBehavior never",
+    "deploy": "npx tsx scripts/deploy.ts",
+    "deploy:regtest": "OPNET_NETWORK=regtest npx tsx scripts/deploy.ts",
+    "update-frontend": "npx tsx scripts/update-frontend.ts",
+    "build-and-deploy": "npm run build && npm run deploy:regtest && npm run update-frontend",
+    "test": "asp --config as-pect.asconfig.json"
+  },
+  "dependencies": {
+    "@btc-vision/as-bignum": "^0.1.2",
+    "@btc-vision/btc-runtime": "1.11.0-rc.10"
+  },
+  "devDependencies": {
+    "@btc-vision/bitcoin": "7.0.0-rc.6",
+    "@btc-vision/opnet-transform": "^1.2.0",
+    "@btc-vision/transaction": "1.8.0-rc.10",
+    "assemblyscript": "^0.28.9",
+    "dotenv": "^16.4.0",
+    "opnet": "1.8.1-rc.17",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

@@ -1,0 +1,42 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   App Layout Styles
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Action bar (between hero and grid) ── */
+.app__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1.5rem 2rem 0;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Footer ── */
+.app__footer {
+  margin-top: auto;
+  padding: 2rem;
+  text-align: center;
+  border-top: 1px solid var(--border-dim);
+  background: var(--bg-glass);
+}
+
+.app__footer p {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.app__footer-sub {
+  margin-top: 0.3rem;
+  font-size: 0.6rem !important;
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .app__actions {
+    padding: 1rem 1rem 0;
+    justify-content: center;
+  }
+}

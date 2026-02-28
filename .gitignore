@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+contracts/build/
+contracts/abis/
+frontend/dist/
+
+# Environment secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/

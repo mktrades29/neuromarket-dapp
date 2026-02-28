@@ -1,0 +1,116 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SkillCard Styles
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Thin colored bar at top */
+.skill-card__accent {
+  height: 3px;
+  width: 100%;
+  opacity: 0.8;
+}
+
+.skill-card:hover .skill-card__accent {
+  opacity: 1;
+  box-shadow: 0 0 12px currentColor;
+}
+
+/* Header row */
+.skill-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem 0;
+}
+
+.skill-card__type {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+.skill-card__icon {
+  font-size: 1.4rem;
+  color: var(--text-muted);
+}
+
+/* Body */
+.skill-card__body {
+  padding: 1rem 1.25rem;
+  flex: 1;
+}
+
+.skill-card__title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.05em;
+}
+
+.skill-card__creator {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.skill-card__ipfs {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skill-card__ipfs code {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: rgba(0, 240, 255, 0.05);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+/* Footer */
+.skill-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-dim);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.skill-card__price {
+  display: flex;
+  flex-direction: column;
+}
+
+.skill-card__price-amount {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+}
+
+.skill-card__price-token {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.skill-card__footer .btn {
+  font-size: 0.7rem;
+  padding: 0.5rem 1rem;
+}
