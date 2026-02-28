@@ -2,17 +2,14 @@
 //  contract.ts — Helpers to interact with the NeuroMarket smart contract
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-//  These utilities build the correct calldata payloads and dispatch them via
-//  the OP_WALLET extension (window.opnet). In a production app these would use
-//  the @btc-vision/transaction SDK; for the hackathon demo we build the RPC
-//  calls manually.
+//  Uses the OP_WALLET extension's signAndBroadcastInteraction() method to
+//  build, sign, and broadcast contract calls to the OP_NET network.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type { SkillListing } from '../types';
 
-// ── Contract address (set after deployment) ──
-// Replace this with the actual deployed NeuroMarket contract address
+// ── Contract address (deployed on regtest) ──
 export const NEUROMARKET_ADDRESS = 'opr1sqz44xuehaxvrjztrwjk8z6exngtd6g3ftsgwr0s0';
 
 // ── Well-known OP_20 token addresses (Regtest / Testnet placeholders) ──
@@ -47,6 +44,60 @@ export function tokenSymbol(tokenAddress: string): string {
   return '$???';
 }
 
+// ── Helper: encode a string to Uint8Array (UTF-8) ──
+function encodeString(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
+}
+
+// ── Helper: encode u256 as 32-byte big-endian Uint8Array ──
+function encodeU256(value: string): Uint8Array {
+  const hex = BigInt(value).toString(16).padStart(64, '0');
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+// ── Helper: encode a selector string via SHA-256 (first 4 bytes) ──
+async function encodeSelector(name: string): Promise<Uint8Array> {
+  const data = encodeString(name);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(hash).slice(0, 4);
+}
+
+// ── Helper: concatenate multiple Uint8Arrays ──
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+// ── Helper: encode a string with 2-byte length prefix ──
+function encodeStringWithLength(str: string): Uint8Array {
+  const strBytes = encodeString(str);
+  const lenBytes = new Uint8Array(2);
+  lenBytes[0] = (strBytes.length >> 8) & 0xff;
+  lenBytes[1] = strBytes.length & 0xff;
+  return concatBytes(lenBytes, strBytes);
+}
+
+// ── Helper: encode an address (32 bytes from hex string) ──
+function encodeAddress(addr: string): Uint8Array {
+  const clean = addr.startsWith('0x') ? addr.slice(2) : addr;
+  const padded = clean.padStart(64, '0');
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    bytes[i] = parseInt(padded.substring(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  Contract Read Calls (via OP_WALLET RPC)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,21 +107,17 @@ export async function getListing(listingId: string): Promise<SkillListing | null
   if (!window.opnet) throw new Error('OP_WALLET not available');
 
   try {
-    const result = await window.opnet.request({
-      method: 'call',
-      params: [
-        {
-          to: NEUROMARKET_ADDRESS,
-          data: {
-            selector: 'getListing()',
-            params: [{ type: 'uint256', value: listingId }],
-          },
-        },
-      ],
+    const selector = await encodeSelector('getListing()');
+    const calldata = concatBytes(selector, encodeU256(listingId));
+
+    // Use signAndBroadcastInteraction for read calls too
+    // (the wallet handles simulation vs. broadcast based on the call)
+    const result = await window.opnet.signAndBroadcastInteraction({
+      to: NEUROMARKET_ADDRESS,
+      calldata,
     });
 
-    // Parse the response into our SkillListing type
-    const data = result as Record<string, unknown>;
+    const data = result as unknown as Record<string, unknown>;
     return {
       id: listingId,
       creator: data.creator as string,
@@ -98,7 +145,7 @@ export async function getAllListings(count: number): Promise<SkillListing[]> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Contract Write Calls (via OP_WALLET RPC)
+//  Contract Write Calls (via OP_WALLET signAndBroadcastInteraction)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** List a new AI skill on the marketplace */
@@ -110,42 +157,33 @@ export async function listSkill(
 ): Promise<string> {
   if (!window.opnet) throw new Error('OP_WALLET not available');
 
-  const result = await window.opnet.request({
-    method: 'sendTransaction',
-    params: [
-      {
-        to: NEUROMARKET_ADDRESS,
-        data: {
-          selector: 'listSkill()',
-          params: [
-            { type: 'string', value: ipfsHash },
-            { type: 'uint256', value: price },
-            { type: 'address', value: paymentTokenAddress },
-            { type: 'string', value: decryptionKey },
-          ],
-        },
-      },
-    ],
+  const selector = await encodeSelector('listSkill()');
+  const calldata = concatBytes(
+    selector,
+    encodeStringWithLength(ipfsHash),
+    encodeU256(price),
+    encodeAddress(paymentTokenAddress),
+    encodeStringWithLength(decryptionKey),
+  );
+
+  const [, , , txId] = await window.opnet.signAndBroadcastInteraction({
+    to: NEUROMARKET_ADDRESS,
+    calldata,
   });
 
-  return result as string; // Returns listing ID
+  return txId;
 }
 
 /** Buy a listed skill — the buyer must have approved the token spend first */
 export async function buySkill(listingId: string): Promise<boolean> {
   if (!window.opnet) throw new Error('OP_WALLET not available');
 
-  const result = await window.opnet.request({
-    method: 'sendTransaction',
-    params: [
-      {
-        to: NEUROMARKET_ADDRESS,
-        data: {
-          selector: 'buySkill()',
-          params: [{ type: 'uint256', value: listingId }],
-        },
-      },
-    ],
+  const selector = await encodeSelector('buySkill()');
+  const calldata = concatBytes(selector, encodeU256(listingId));
+
+  const result = await window.opnet.signAndBroadcastInteraction({
+    to: NEUROMARKET_ADDRESS,
+    calldata,
   });
 
   return !!result;
@@ -158,20 +196,16 @@ export async function approveTokenSpend(
 ): Promise<boolean> {
   if (!window.opnet) throw new Error('OP_WALLET not available');
 
-  const result = await window.opnet.request({
-    method: 'sendTransaction',
-    params: [
-      {
-        to: tokenAddress,
-        data: {
-          selector: 'increaseAllowance()',
-          params: [
-            { type: 'address', value: NEUROMARKET_ADDRESS },
-            { type: 'uint256', value: amount },
-          ],
-        },
-      },
-    ],
+  const selector = await encodeSelector('increaseAllowance()');
+  const calldata = concatBytes(
+    selector,
+    encodeAddress(NEUROMARKET_ADDRESS),
+    encodeU256(amount),
+  );
+
+  const result = await window.opnet.signAndBroadcastInteraction({
+    to: tokenAddress,
+    calldata,
   });
 
   return !!result;

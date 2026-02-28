@@ -14,36 +14,72 @@ const INITIAL_STATE: WalletState = {
 
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletState>(INITIAL_STATE);
+  const [isAvailable, setIsAvailable] = useState(
+    typeof window !== 'undefined' && !!window.opnet,
+  );
 
-  // ── Detect if OP_WALLET extension is installed ──
-  const isAvailable = typeof window !== 'undefined' && !!window.opnet;
+  // ── Listen for the wallet extension to finish injecting ──
+  useEffect(() => {
+    if (window.opnet) {
+      setIsAvailable(true);
+      return;
+    }
 
-  // ── Connect to the wallet ──
+    // OP_WALLET dispatches this event once the provider is injected
+    const onInit = () => setIsAvailable(true);
+    window.addEventListener('opnet#initialized', onInit);
+    return () => window.removeEventListener('opnet#initialized', onInit);
+  }, []);
+
+  // ── Auto-reconnect if already authorized ──
+  useEffect(() => {
+    if (!window.opnet) return;
+
+    (async () => {
+      try {
+        const accounts = await window.opnet!.getAccounts();
+        if (accounts.length > 0) {
+          const network = await window.opnet!.getNetwork();
+          setWallet({
+            isConnected: true,
+            address: accounts[0],
+            network: network ?? 'regtest',
+            isConnecting: false,
+          });
+        }
+      } catch {
+        // Not previously authorized — that's fine
+      }
+    })();
+  }, [isAvailable]);
+
+  // ── Connect to the wallet (prompts user approval popup) ──
   const connect = useCallback(async () => {
     if (!window.opnet) {
-      alert('OP_WALLET extension not detected. Please install it first.');
+      window.open(
+        'https://chromewebstore.google.com/detail/opwallet/pmbjpcmaaladnfpacpmhmnfmpklgbdjb',
+        '_blank',
+      );
       return;
     }
 
     setWallet((prev) => ({ ...prev, isConnecting: true }));
 
     try {
-      // Request account access from the wallet extension
-      const accounts = (await window.opnet.request({
-        method: 'connect',
-      })) as string[];
+      // requestAccounts() opens the OP_WALLET approval popup
+      const accounts = await window.opnet.requestAccounts();
 
-      const address = Array.isArray(accounts) ? accounts[0] : (accounts as string);
+      if (!accounts || accounts.length === 0) {
+        setWallet({ ...INITIAL_STATE, isConnecting: false });
+        return;
+      }
 
-      // Get the current network
-      const network = (await window.opnet.request({
-        method: 'getNetwork',
-      })) as string;
+      const network = await window.opnet.getNetwork();
 
       setWallet({
         isConnected: true,
-        address: address ?? null,
-        network: network ?? 'mainnet',
+        address: accounts[0],
+        network: network ?? 'regtest',
         isConnecting: false,
       });
     } catch (err) {
@@ -53,7 +89,12 @@ export function useWallet() {
   }, []);
 
   // ── Disconnect ──
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    try {
+      await window.opnet?.disconnect();
+    } catch {
+      // Ignore disconnect errors
+    }
     setWallet(INITIAL_STATE);
   }, []);
 
@@ -61,28 +102,35 @@ export function useWallet() {
   useEffect(() => {
     if (!window.opnet) return;
 
-    const handleAccountChange = (...args: unknown[]) => {
-      const accounts = args[0] as string[];
-      if (accounts.length === 0) {
+    const handleAccountChange = (accounts: unknown) => {
+      const accs = accounts as string[];
+      if (!accs || accs.length === 0) {
         setWallet(INITIAL_STATE);
       } else {
-        setWallet((prev) => ({ ...prev, address: accounts[0] }));
+        setWallet((prev) => ({ ...prev, address: accs[0] }));
       }
     };
 
-    const handleNetworkChange = (...args: unknown[]) => {
-      const network = args[0] as string;
+    const handleNetworkChange = (data: unknown) => {
+      const info = data as { network?: string; chainType?: string };
+      const network = info?.network ?? (data as string);
       setWallet((prev) => ({ ...prev, network }));
+    };
+
+    const handleDisconnect = () => {
+      setWallet(INITIAL_STATE);
     };
 
     window.opnet.on('accountsChanged', handleAccountChange);
     window.opnet.on('networkChanged', handleNetworkChange);
+    window.opnet.on('disconnect', handleDisconnect);
 
     return () => {
       window.opnet?.removeListener('accountsChanged', handleAccountChange);
       window.opnet?.removeListener('networkChanged', handleNetworkChange);
+      window.opnet?.removeListener('disconnect', handleDisconnect);
     };
-  }, []);
+  }, [isAvailable]);
 
   return {
     ...wallet,

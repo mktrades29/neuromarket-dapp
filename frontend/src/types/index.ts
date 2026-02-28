@@ -7,8 +7,8 @@ export interface SkillListing {
   id: string;
   creator: string;
   ipfsHash: string;
-  price: string;        // BigInt-compatible string (e.g. "1000000000000000000")
-  paymentToken: string;  // OP_20 token contract address
+  price: string;
+  paymentToken: string;
   isActive: boolean;
 }
 
@@ -18,7 +18,7 @@ export interface SkillCardData {
   creator: string;
   ipfsHash: string;
   price: string;
-  priceFormatted: string;  // e.g. "100 $MOTO"
+  priceFormatted: string;
   tokenSymbol: string;
   isActive: boolean;
 }
@@ -33,8 +33,32 @@ export interface WalletState {
 
 /** OP_WALLET provider interface (window.opnet) */
 export interface OPNetProvider {
-  isOPNet?: boolean;
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  isOPWallet?: boolean;
+
+  // Connection
+  requestAccounts: () => Promise<string[]>;
+  getAccounts: () => Promise<string[]>;
+  disconnect: () => Promise<void>;
+
+  // Account info
+  getPublicKey: () => Promise<string>;
+  getBalance: () => Promise<{ confirmed: number; unconfirmed: number; total: number }>;
+
+  // Network
+  getNetwork: () => Promise<string>;
+  switchNetwork: (network: string) => Promise<void>;
+  getChain: () => Promise<{ enum: string; name: string; network: string }>;
+
+  // Signing
+  signMessage: (message: string, type?: string) => Promise<string>;
+
+  // Contract interactions
+  signAndBroadcastInteraction: (params: {
+    to: string;
+    calldata: Uint8Array;
+  }) => Promise<[unknown, unknown, unknown[], string]>;
+
+  // Events
   on: (event: string, handler: (...args: unknown[]) => void) => void;
   removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
 }
