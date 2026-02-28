@@ -7,12 +7,10 @@ import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { SkillGrid } from './components/SkillGrid';
 import { ListSkillModal } from './components/ListSkillModal';
-import { useWalletContext } from './context/WalletContext';
 import { HiOutlinePlus } from 'react-icons/hi';
 import './App.css';
 
 function App() {
-  const { isConnected } = useWalletContext();
   const [showListModal, setShowListModal] = useState(false);
 
   return (
@@ -25,8 +23,6 @@ function App() {
         <button
           className="btn btn--cyan"
           onClick={() => setShowListModal(true)}
-          disabled={!isConnected}
-          title={!isConnected ? 'Connect wallet first' : 'List a new AI skill'}
         >
           <HiOutlinePlus style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
           List a Skill

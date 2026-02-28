@@ -4,6 +4,8 @@
 
 import { useState, type FormEvent } from 'react';
 import { HiOutlineUpload, HiOutlineX } from 'react-icons/hi';
+import { useWalletContext } from '../context/WalletContext';
+import { useToast } from './Toast';
 import { listSkill, TOKENS } from '../utils/contract';
 import './ListSkillModal.css';
 
@@ -13,6 +15,8 @@ interface ListSkillModalProps {
 }
 
 export function ListSkillModal({ isOpen, onClose }: ListSkillModalProps) {
+  const { isConnected } = useWalletContext();
+  const { toast } = useToast();
   const [ipfsHash, setIpfsHash] = useState('');
   const [price, setPrice] = useState('');
   const [token, setToken] = useState('MOTO');
@@ -23,25 +27,40 @@ export function ListSkillModal({ isOpen, onClose }: ListSkillModalProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ipfsHash || !price || !decryptionKey) return;
+    if (!ipfsHash || !price || !decryptionKey) {
+      toast('Please fill in all fields.', 'error');
+      return;
+    }
 
     setSubmitting(true);
+
+    // Demo mode — simulate listing if wallet not connected
+    if (!isConnected) {
+      toast('Submitting skill listing to OP_NET...', 'info');
+      await new Promise((r) => setTimeout(r, 2000));
+      toast(`Skill listed! IPFS: ${ipfsHash.slice(0, 12)}... Price: ${price} ${TOKENS[token].symbol}`, 'success');
+      setSubmitting(false);
+      onClose();
+      return;
+    }
+
+    // Real listing flow
     try {
-      // Convert human-readable price to raw u256 (multiply by 10^18)
+      toast('Submitting skill listing to OP_NET...', 'info');
       const rawPrice = price + '000000000000000000';
 
-      const listingId = await listSkill(
+      const txId = await listSkill(
         ipfsHash,
         rawPrice,
         TOKENS[token].address,
         decryptionKey,
       );
 
-      alert(`Skill listed successfully! Listing ID: ${listingId}`);
+      toast(`Skill listed! TX: ${txId}`, 'success');
       onClose();
     } catch (err) {
       console.error('[NeuroMarket] List skill failed:', err);
-      alert('Failed to list skill. Check console for details.');
+      toast('Failed to list skill. Check console for details.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -59,6 +78,13 @@ export function ListSkillModal({ isOpen, onClose }: ListSkillModalProps) {
             <HiOutlineX />
           </button>
         </div>
+
+        {/* ── Demo notice ── */}
+        {!isConnected && (
+          <div className="modal__notice">
+            Demo mode — connect OP_WALLET for real on-chain listings
+          </div>
+        )}
 
         {/* ── Form ── */}
         <form className="modal__form" onSubmit={handleSubmit}>
